@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+// KP Sales Tracker v2.0 - settings, kpi todos, foto perfil, icone app
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // ─── SUPABASE ─────────────────────────────────────────────────────────────────
