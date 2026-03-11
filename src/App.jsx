@@ -666,7 +666,7 @@ function Dashboard({ client, isMobile, onBack, onUpdate }) {
   };
 
   const headerContent = (
-    <div className="no-print" style={{ background: "#0f0f0f", padding: isMobile ? "44px 22px 20px" : "28px 36px 24px", borderBottom: "1px solid #181818", position: "sticky", top: 0, zIndex: 10 }}>
+    <div className="no-print" style={{ background: "#0f0f0f", padding: isMobile ? "44px 22px 20px" : "28px 36px 24px", borderBottom: "1px solid #181818", ...(isMobile ? { position: "sticky", top: 0, zIndex: 10 } : {}) }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         {isMobile && <button onClick={onBack} style={{ background: "none", border: "none", color: "#e53935", cursor: "pointer", fontSize: 13, fontWeight: 700, padding: 0, marginBottom: 10, display: "flex", alignItems: "center", gap: 5, fontFamily: "'DM Sans', sans-serif" }}>← Carteira</button>}
         <button onClick={handlePrint} style={{ background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 10, color: "#aaa", fontSize: 12, fontWeight: 700, padding: "8px 14px", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6, marginLeft: isMobile ? 0 : "auto" }}>
@@ -678,7 +678,7 @@ function Dashboard({ client, isMobile, onBack, onUpdate }) {
     </div>
   );
 
-  const contentPad = isMobile ? "4px 20px 0" : "4px 36px 0";
+  const contentPad = isMobile ? "4px 20px 0" : "28px 36px 40px";
 
   // Desktop: annual summary row at top
   const annualSummaryDesktop = !isMobile && (
@@ -842,11 +842,11 @@ function KpiDashboard({ clients, isMobile, onBack }) {
     </div>
   );
 
-  const pad = isMobile ? "4px 20px 0" : "4px 36px 0";
+  const pad = isMobile ? "4px 20px 0" : "28px 36px 40px";
 
   return (
     <div style={{ minHeight: "100vh", background: "#080808", fontFamily: "'DM Sans', sans-serif", paddingBottom: 60 }}>
-      <div className="no-print" style={{ background: "#0f0f0f", padding: isMobile ? "44px 22px 20px" : "28px 36px 24px", borderBottom: "1px solid #181818", position: "sticky", top: 0, zIndex: 10 }}>
+      <div className="no-print" style={{ background: "#0f0f0f", padding: isMobile ? "44px 22px 20px" : "28px 36px 24px", borderBottom: "1px solid #181818", ...(isMobile ? { position: "sticky", top: 0, zIndex: 10 } : {}) }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           {isMobile && <button onClick={onBack} style={{ background: "none", border: "none", color: "#e53935", cursor: "pointer", fontSize: 13, fontWeight: 700, padding: 0, marginBottom: 10, fontFamily: "'DM Sans', sans-serif" }}>← Carteira</button>}
           <button onClick={handlePrint} style={{ background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 10, color: "#aaa", fontSize: 12, fontWeight: 700, padding: "8px 14px", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6, marginLeft: isMobile ? 0 : "auto" }}>
