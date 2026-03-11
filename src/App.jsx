@@ -613,7 +613,7 @@ function UpdateModal({ quarter, qIndex, onSave, onClose }) {
 }
 
 // ─── CLIENT LIST ──────────────────────────────────────────────────────────────
-function ClientList({ clients, currentUser, users, isMobile, onSelect, onSaveClient, onDeleteClient, onAddUser, onDeleteUser, onUpdateUser, onUpdateUserCompanies, onLogout, onKpi, onSettings }) {
+function ClientList({ clients, currentUser, users, isMobile, onSelect, onSaveClient, onDeleteClient, onAddUser, onDeleteUser, onUpdateUser, onUpdateUserCompanies, onLogout, onKpi, onSettings, onPermissions }) {
   const [showUsers, setShowUsers] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [editClient, setEditClient] = useState(null);
@@ -759,10 +759,12 @@ function ClientList({ clients, currentUser, users, isMobile, onSelect, onSaveCli
                   </div>
                   <div style={{ color: "#333", fontSize: 22 }}>›</div>
                 </div>
-                <div style={{ display: "flex", gap: 8, marginTop: 12, paddingTop: 12, borderTop: "1px solid #1a1a1a" }}>
-                  <button onClick={() => setEditClient(c)} style={{ flex: 1, padding: "7px 0", background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 8, color: "#aaa", fontSize: 12, cursor: "pointer", fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>✏️ Editar</button>
-                  {currentUser.isAdmin && <button onClick={() => setDeleteClient(c)} style={{ flex: 1, padding: "7px 0", background: "#1a0a0a", border: "1px solid #e5393533", borderRadius: 8, color: "#ff6f61", fontSize: 12, cursor: "pointer", fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>🗑️ Excluir</button>}
-                </div>
+                {(canEdit || canDelete) && (
+                  <div style={{ display: "flex", gap: 8, marginTop: 12, paddingTop: 12, borderTop: "1px solid #1a1a1a" }}>
+                    {canEdit && <button onClick={() => setEditClient(c)} style={{ flex: 1, padding: "7px 0", background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 8, color: "#aaa", fontSize: 12, cursor: "pointer", fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>✏️ Editar</button>}
+                    {canDelete && <button onClick={() => setDeleteClient(c)} style={{ flex: 1, padding: "7px 0", background: "#1a0a0a", border: "1px solid #e5393533", borderRadius: 8, color: "#ff6f61", fontSize: 12, cursor: "pointer", fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>🗑️ Excluir</button>}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -789,6 +791,9 @@ function ClientList({ clients, currentUser, users, isMobile, onSelect, onSaveCli
               <div style={{ fontSize: 13, color: "#555", marginTop: 2 }}>Olá, <span style={{ color: "#888" }}>{currentUser.username}</span></div>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
+              {currentUser.isAdmin && (
+                <button onClick={onPermissions} style={{ background: "none", border: "1px solid #222", borderRadius: 10, color: "#555", fontSize: 12, padding: "7px 10px", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>🛡️</button>
+              )}
               <button onClick={onSettings} style={{ background: "none", border: "1px solid #222", borderRadius: 10, color: "#555", fontSize: 12, padding: "7px 10px", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>⚙️</button>
               <button onClick={onLogout} style={{ background: "none", border: "1px solid #222", borderRadius: 10, color: "#555", fontSize: 12, padding: "7px 12px", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Sair</button>
             </div>
@@ -1161,7 +1166,7 @@ export default function App() {
     if (screen === "dashboard") return <Dashboard client={selected} isMobile={isMobile} onBack={() => setScreen("clients")} onUpdate={handleUpdate} canUpdate={canUpdate} />;
     if (screen === "permissions" && currentUser.isAdmin) return <PermissionsScreen users={users} onUpdatePermissions={handleUpdatePermissions} isMobile={isMobile} onBack={() => setScreen("clients")} />;
     if (screen === "settings") return <SettingsScreen currentUser={currentUser} appIcon={appIcon} onUpdateUser={handleUpdateUser} onUpdateAppIcon={handleUpdateAppIcon} isMobile={isMobile} onBack={() => setScreen("clients")} />;
-    return <ClientList clients={clients} currentUser={currentUser} users={users} isMobile={isMobile} onSelect={handleSelect} onSaveClient={handleSaveClient} onDeleteClient={handleDeleteClient} onAddUser={handleAddUser} onDeleteUser={handleDeleteUser} onUpdateUser={handleUpdateUser} onUpdateUserCompanies={handleUpdateUserCompanies} onLogout={() => { setCurrentUser(null); setScreen("login"); }} onKpi={() => setScreen("kpi")} onSettings={() => setScreen("settings")} />;
+    return <ClientList clients={clients} currentUser={currentUser} users={users} isMobile={isMobile} onSelect={handleSelect} onSaveClient={handleSaveClient} onDeleteClient={handleDeleteClient} onAddUser={handleAddUser} onDeleteUser={handleDeleteUser} onUpdateUser={handleUpdateUser} onUpdateUserCompanies={handleUpdateUserCompanies} onLogout={() => { setCurrentUser(null); setScreen("login"); }} onKpi={() => setScreen("kpi")} onSettings={() => setScreen("settings")} onPermissions={() => setScreen("permissions")} />;
   })();
 
   if (isMobile) return mainContent;
