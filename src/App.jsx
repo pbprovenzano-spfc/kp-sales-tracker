@@ -1,4 +1,6 @@
-// KP Sales Tracker v3.1
+// KP Sales Tracker v4.0
+// SQL: ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '{}';
+// SQL: ALTER TABLE companies ADD COLUMN IF NOT EXISTS rebate BOOLEAN DEFAULT FALSE;
 import React, { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
@@ -8,12 +10,14 @@ const supabase = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZiZXFxaWltbWNjcHJrbnpybXdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxOTA5ODIsImV4cCI6MjA4ODc2Njk4Mn0.nmM1GHJZWtbF_Q-npeavMsUZDGyLJ9uDjrWZ2riRs2A"
 );
 
-const dbToUser = (r) => ({ id: r.id, username: r.username, email: r.email || "", password: r.password, isAdmin: r.is_admin, companyIds: r.company_ids || [], avatarUrl: r.avatar_url || "" });
-const dbToClient = (r) => ({ id: r.id, name: r.name, year: r.year, annualGoal: r.annual_goal, quarters: r.quarters });
+const dbToUser = (r) => ({ id: r.id, username: r.username, email: r.email || "", password: r.password, isAdmin: r.is_admin, companyIds: r.company_ids || [], avatarUrl: r.avatar_url || "", permissions: r.permissions || {} });
+const dbToClient = (r) => ({ id: r.id, name: r.name, year: r.year, annualGoal: r.annual_goal, quarters: r.quarters, rebate: r.rebate || false });
 
 // ─── GLOBAL STYLES ────────────────────────────────────────────────────────────
 (function injectGlobal() {
   if (document.getElementById("kp-global")) return;
+  const vp = document.querySelector('meta[name="viewport"]');
+  if (vp && !vp.content.includes("viewport-fit")) vp.content += ", viewport-fit=cover";
   const css = [
     "*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }",
     "html, body { width: 100%; height: 100%; background: #080808; }",
@@ -82,8 +86,32 @@ function Avatar({ url, name, size = 36, fs = 16 }) {
   return <div style={{ width: size, height: size, borderRadius: size / 2.5, background: "linear-gradient(135deg,#e53935,#c62828)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: fs, flexShrink: 0, color: "#fff", fontWeight: 700 }}>{name?.[0] || "?"}</div>;
 }
 
+
+function Toggle({ on, onChange, label, icon }) {
+  return (
+    <div onClick={onChange} style={{ cursor: "pointer", background: on ? "#0d1f0d" : "#161616", border: "1px solid " + (on ? "#22c55e55" : "#282828"), borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", userSelect: "none" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 15 }}>{icon}</span>
+        <span style={{ fontSize: 12, color: on ? "#22c55e" : "#666", fontWeight: on ? 700 : 400, fontFamily: "'DM Sans', sans-serif" }}>{label}</span>
+      </div>
+      <div style={{ width: 34, height: 18, borderRadius: 999, background: on ? "#22c55e" : "#333", position: "relative", flexShrink: 0, transition: "background .2s" }}>
+        <div style={{ position: "absolute", top: 2, left: on ? 16 : 2, width: 14, height: 14, borderRadius: 999, background: "#fff", transition: "left .2s" }} />
+      </div>
+    </div>
+  );
+}
+
+const loadXLSX = () => new Promise((resolve, reject) => {
+  if (window.XLSX) { resolve(window.XLSX); return; }
+  const s = document.createElement("script");
+  s.src = "https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js";
+  s.onload = () => resolve(window.XLSX);
+  s.onerror = () => reject(new Error("Falha ao carregar SheetJS"));
+  document.head.appendChild(s);
+});
+
 // Header height accounting for safe area — used as padding-top on all page headers
-const HDR_PAD_MOBILE = "calc(var(--sat) + 18px)";
+const HDR_PAD_MOBILE = "max(env(safe-area-inset-top, 0px), 44px)";
 const HDR_PAD_DESKTOP = "36px";
 
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
@@ -91,6 +119,7 @@ function Sidebar({ currentUser, screen, appIcon, onNav, onLogout }) {
   const items = [
     { id: "clients", icon: "🏢", label: "Carteira" },
     { id: "kpi", icon: "📊", label: "Painel KPIs" },
+    ...(currentUser.isAdmin ? [{ id: "permissions", icon: "🛡️", label: "Permissões" }] : []),
     { id: "settings", icon: "⚙️", label: "Configurações" },
   ];
   return (
@@ -206,9 +235,8 @@ function SettingsScreen({ currentUser, appIcon, onUpdateUser, onUpdateAppIcon, i
 
   const hdrPad = isMobile ? HDR_PAD_MOBILE + " 22px 22px" : HDR_PAD_DESKTOP + " 36px 24px";
 
-  return (
-    <div style={{ minHeight: "100vh", background: "#080808", fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ background: "#0d0d0d", padding: hdrPad, borderBottom: "1px solid #181818" }}>
+  const settingsHeader = (
+    <div className={isMobile ? "kp-hdr" : ""} style={{ background: "#0d0d0d", paddingTop: isMobile ? HDR_PAD_MOBILE : HDR_PAD_DESKTOP, paddingBottom: 22, paddingLeft: isMobile ? 22 : 36, paddingRight: isMobile ? 22 : 36, borderBottom: "1px solid #181818" }}>
         {isMobile && (
           <button onClick={onBack} style={{ background: "none", border: "none", color: "#e53935", cursor: "pointer", fontSize: 13, fontWeight: 700, padding: 0, marginBottom: 12, display: "flex", alignItems: "center", gap: 5, fontFamily: "'DM Sans', sans-serif" }}>
             ← Voltar
@@ -263,7 +291,55 @@ function SettingsScreen({ currentUser, appIcon, onUpdateUser, onUpdateAppIcon, i
   );
 }
 
-// ─── USER MODAL ───────────────────────────────────────────────────────────────
+
+// ─── PERMISSIONS SCREEN ───────────────────────────────────────────────────────
+function PermissionsScreen({ users, onUpdatePermissions, isMobile, onBack }) {
+  const nonAdmins = users.filter((u) => !u.isAdmin);
+  const permDefs = [
+    { key: "canAddClient", icon: "🏢", label: "Cadastrar clientes" },
+    { key: "canEditClient", icon: "✏️", label: "Editar clientes" },
+    { key: "canDeleteClient", icon: "🗑️", label: "Excluir clientes" },
+    { key: "canUpdateGoals", icon: "📊", label: "Atualizar metas" },
+  ];
+  const hdrStyle = { background: "#0d0d0d", paddingTop: isMobile ? HDR_PAD_MOBILE : HDR_PAD_DESKTOP, paddingBottom: 22, paddingLeft: isMobile ? 22 : 36, paddingRight: isMobile ? 22 : 36, borderBottom: "1px solid #181818" };
+  const header = (
+    <div className={isMobile ? "kp-hdr" : ""} style={hdrStyle}>
+      {isMobile && (<button onClick={onBack} style={{ background: "none", border: "none", color: "#e53935", cursor: "pointer", fontSize: 13, fontWeight: 700, padding: 0, marginBottom: 12, display: "flex", alignItems: "center", gap: 5, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>)}
+      <div style={{ fontSize: 11, color: "#e53935", fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>KP REPRESENTAÇÃO</div>
+      <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, color: "#f0f0f0", letterSpacing: -0.5 }}>🛡️ Permissões</div>
+      <div style={{ fontSize: 13, color: "#555", marginTop: 4 }}>Controle o que cada usuário pode fazer</div>
+    </div>
+  );
+  const body = (
+    <div style={{ padding: isMobile ? "20px 18px 60px" : "28px 36px", maxWidth: 720 }}>
+      {nonAdmins.length === 0 && (<div style={{ textAlign: "center", padding: "60px 20px", color: "#444" }}><div style={{ fontSize: 36, marginBottom: 10 }}>👥</div><div style={{ fontSize: 15 }}>Nenhum usuário não-admin cadastrado</div></div>)}
+      {nonAdmins.map((u) => (
+        <div key={u.id} style={{ background: "#111", borderRadius: 16, padding: "18px 20px", border: "1px solid #1a1a1a", marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+            <Avatar url={u.avatarUrl} name={u.username} size={40} fs={18} />
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#f0f0f0" }}>{u.username}</div>
+              <div style={{ fontSize: 12, color: "#555" }}>{u.email || "sem e-mail"}</div>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: 8 }}>
+            {permDefs.map(({ key, icon, label }) => (
+              <Toggle key={key} on={!!(u.permissions && u.permissions[key])} icon={icon} label={label}
+                onChange={() => { const cur = u.permissions || {}; onUpdatePermissions(u.id, { ...cur, [key]: !cur[key] }); }} />
+            ))}
+          </div>
+        </div>
+      ))}
+      <div style={{ padding: "12px 16px", background: "#0a1a0a", borderRadius: 12, border: "1px solid #22c55e22" }}>
+        <div style={{ fontSize: 12, color: "#444" }}>ℹ️ Alterações têm efeito imediato. O admin sempre tem acesso total.</div>
+      </div>
+    </div>
+  );
+  if (isMobile) return <div className="kp-page" style={{ fontFamily: "'DM Sans', sans-serif" }}>{header}<div className="kp-body">{body}</div></div>;
+  return <div style={{ minHeight: "100vh", background: "#080808", fontFamily: "'DM Sans', sans-serif" }}>{header}{body}</div>;
+}
+
+// ─── USER MODAL (admin-only, full CRUD with login info) ──────────────────────
 function UserModal({ users, clients, onAdd, onDelete, onUpdateUser, onUpdateUserCompanies, onClose }) {
   const [nu, setNu] = useState("");
   const [ne, setNe] = useState("");
@@ -272,6 +348,7 @@ function UserModal({ users, clients, onAdd, onDelete, onUpdateUser, onUpdateUser
   const [ok, setOk] = useState("");
   const [expanded, setExpanded] = useState(null);
   const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
   const [editPass, setEditPass] = useState("");
   const [editErr, setEditErr] = useState("");
 
@@ -287,7 +364,9 @@ function UserModal({ users, clients, onAdd, onDelete, onUpdateUser, onUpdateUser
   const saveEdit = (u) => {
     if (!editName.trim()) { setEditErr("Nome não pode ser vazio."); return; }
     if (users.find((x) => x.username === editName.trim() && x.id !== u.id)) { setEditErr("Esse nome já está em uso."); return; }
-    onUpdateUser(u.id, { username: editName.trim(), password: editPass.trim() !== "" ? editPass.trim() : u.password });
+    const ch = { username: editName.trim(), email: editEmail.trim() };
+    if (editPass.trim()) ch.password = editPass.trim();
+    onUpdateUser(u.id, ch);
     setExpanded(null); setOk("Usuário atualizado!"); setTimeout(() => setOk(""), 2500);
   };
 
@@ -298,7 +377,7 @@ function UserModal({ users, clients, onAdd, onDelete, onUpdateUser, onUpdateUser
 
   const togglePanel = (uid, mode) => {
     if (expanded && expanded.id === uid && expanded.mode === mode) { setExpanded(null); return; }
-    if (mode === "edit") { const u = users.find((x) => x.id === uid); setEditName(u.username); setEditPass(""); setEditErr(""); }
+    if (mode === "edit") { const u = users.find((x) => x.id === uid); setEditName(u.username); setEditEmail(u.email || ""); setEditPass(""); setEditErr(""); }
     setExpanded({ id: uid, mode });
   };
 
@@ -329,8 +408,11 @@ function UserModal({ users, clients, onAdd, onDelete, onUpdateUser, onUpdateUser
             </div>
             {expanded && expanded.id === u.id && expanded.mode === "edit" && (
               <div style={{ borderTop: "1px solid #282828", padding: 14, background: "#161616" }}>
-                <FL>Novo nome</FL>
+                <div style={{ fontSize: 10, color: "#555", letterSpacing: 1, marginBottom: 10 }}>🔐 DADOS DE ACESSO (visível apenas para o admin)</div>
+                <FL>Nome de usuário</FL>
                 <input value={editName} onChange={(e) => { setEditName(e.target.value); setEditErr(""); }} style={{ ...IS, marginTop: 5, fontSize: 13, padding: "9px 12px" }} />
+                <FL mt={10}>E-mail</FL>
+                <input type="email" value={editEmail} onChange={(e) => { setEditEmail(e.target.value); setEditErr(""); }} placeholder="email@exemplo.com" style={{ ...IS, marginTop: 5, fontSize: 13, padding: "9px 12px" }} />
                 <FL mt={10}>Nova senha (em branco = manter)</FL>
                 <input type="password" value={editPass} onChange={(e) => { setEditPass(e.target.value); setEditErr(""); }} placeholder="••••••" style={{ ...IS, marginTop: 5, fontSize: 13, padding: "9px 12px" }} />
                 {editErr && <div style={{ color: RED, fontSize: 11, marginTop: 6 }}>{editErr}</div>}
@@ -374,13 +456,14 @@ function UserModal({ users, clients, onAdd, onDelete, onUpdateUser, onUpdateUser
 }
 
 // ─── COMPANY MODAL ────────────────────────────────────────────────────────────
-function CompanyModal({ existing, onSave, onClose }) {
+function CompanyModal({ existing, onSave, onClose, isAdmin }) {
   const isEdit = !!existing;
   const [name, setName] = useState(isEdit ? existing.name : "");
   const [year, setYear] = useState(isEdit ? String(existing.year) : "2026");
   const [mode, setMode] = useState("quarters");
   const [annual, setAnnual] = useState(isEdit ? String(existing.annualGoal) : "");
   const [qs, setQs] = useState(isEdit ? existing.quarters.map((q) => String(q.goal)) : ["", "", "", ""]);
+  const [rebate, setRebate] = useState(isEdit ? (existing.rebate || false) : false);
   const [err, setErr] = useState("");
   const parseNum = (s) => parseFloat(String(s).replace(",", ".")) || 0;
   const setQ = (i, v) => { const a = [...qs]; a[i] = v; setQs(a); };
@@ -395,7 +478,7 @@ function CompanyModal({ existing, onSave, onClose }) {
     if (annualGoal <= 0) { setErr("Defina metas válidas."); return; }
     const labels = ["1º Trimestre", "2º Trimestre", "3º Trimestre", "4º Trimestre"];
     const quarters = labels.map((label, i) => ({ label, goal: q[i], realized: isEdit ? existing.quarters[i].realized : 0, lastUpdate: isEdit ? existing.quarters[i].lastUpdate : null }));
-    onSave({ id: isEdit ? existing.id : Date.now(), name: name.trim(), year: parseInt(year) || 2026, annualGoal, quarters });
+    onSave({ id: isEdit ? existing.id : Date.now(), name: name.trim(), year: parseInt(year) || 2026, annualGoal, quarters, rebate: isAdmin ? rebate : (isEdit ? (existing.rebate || false) : false) });
     onClose();
   };
   const { annualGoal, q } = computedGoals();
@@ -449,8 +532,42 @@ function CompanyModal({ existing, onSave, onClose }) {
             )}
           </div>
         )}
+        {isAdmin && (
+          <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid #1e1e1e" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <FL>Rebate</FL>
+              <div style={{ padding: "2px 8px", background: "#1a0505", border: "1px solid #e5393533", borderRadius: 6, fontSize: 9, color: "#e53935", fontWeight: 700, letterSpacing: 1 }}>🔒 SIGILOSO</div>
+            </div>
+            <Toggle on={rebate} icon="💰" label="Cliente com rebate" onChange={() => setRebate(!rebate)} />
+          </div>
+        )}
         {err && <div style={{ color: "#ff6f61", fontSize: 12, marginTop: 10, padding: "7px 12px", background: "#ff6f6111", borderRadius: 8 }}>{err}</div>}
         <button onClick={submit} style={{ ...BS, marginTop: 18 }}>{isEdit ? "Salvar Alterações" : "Cadastrar Empresa"}</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── IMPORT PREVIEW MODAL ─────────────────────────────────────────────────────
+function ImportPreviewModal({ rows, onConfirm, onClose }) {
+  const valid = rows.filter((r) => !r.error);
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 250, fontFamily: "'DM Sans', sans-serif" }} onClick={onClose}>
+      <div style={{ background: "#141414", borderRadius: 20, padding: 28, width: 420, maxHeight: "80vh", overflowY: "auto", border: "1px solid #282828" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ fontSize: 17, fontWeight: 700, color: "#f0f0f0", marginBottom: 4 }}>📥 Importar Empresas</div>
+        <div style={{ fontSize: 13, color: "#555", marginBottom: 20 }}>{rows.length} linha(s) encontrada(s) · {valid.length} válida(s)</div>
+        {rows.map((r, i) => (
+          <div key={i} style={{ background: "#1c1c1c", borderRadius: 10, padding: "10px 14px", marginBottom: 6, border: "1px solid " + (r.error ? "#ef444444" : "#282828") }}>
+            <div style={{ fontWeight: 600, color: r.error ? "#ef4444" : "#f0f0f0", fontSize: 13 }}>{r.name || "(sem nome)"}</div>
+            {r.error ? <div style={{ color: "#ef4444", fontSize: 11, marginTop: 3 }}>{r.error}</div>
+              : <div style={{ color: "#555", fontSize: 11, marginTop: 3 }}>Ano {r.year} · Meta: {fmtShort(r.annualGoal)}{r.rebate ? " · 💰 Rebate" : ""}</div>}
+          </div>
+        ))}
+        {rows.some((r) => r.error) && <div style={{ color: "#f59e0b", fontSize: 12, padding: "8px 12px", background: "#f59e0b11", borderRadius: 8, marginTop: 6 }}>⚠️ Linhas com erro serão ignoradas</div>}
+        <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+          <button onClick={onClose} style={{ ...BS, background: "#282828", boxShadow: "none", flex: 1, marginTop: 0 }}>Cancelar</button>
+          <button onClick={() => onConfirm(valid)} disabled={valid.length === 0} style={{ ...BS, flex: 1, marginTop: 0 }}>Importar {valid.length}</button>
+        </div>
       </div>
     </div>
   );
@@ -506,7 +623,50 @@ function ClientList({ clients, currentUser, users, isMobile, onSelect, onSaveCli
   const [showAdd, setShowAdd] = useState(false);
   const [editClient, setEditClient] = useState(null);
   const [deleteClient, setDeleteClient] = useState(null);
+  const [importRows, setImportRows] = useState(null);
+  const [importErr, setImportErr] = useState("");
+  const importRef = React.useRef();
+  const perms = currentUser.permissions || {};
+  const canAdd = currentUser.isAdmin || !!perms.canAddClient;
+  const canEdit = currentUser.isAdmin || !!perms.canEditClient;
+  const canDelete = currentUser.isAdmin || !!perms.canDeleteClient;
   const visibleClients = currentUser.isAdmin ? clients : clients.filter((c) => (currentUser.companyIds || []).includes(c.id));
+
+  const handleImportFile = async (e) => {
+    const file = e.target.files[0]; if (!file) return; setImportErr("");
+    try {
+      const XLSX = await loadXLSX();
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rawRows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+      const parsed = rawRows.map((row) => {
+        const name = String(row["Nome da Empresa"] || row["Nome"] || "").trim();
+        if (!name) return { name: "(vazio)", error: "Nome ausente" };
+        const year = parseInt(row["Ano"]) || new Date().getFullYear();
+        const pn = (s) => parseFloat(String(s || "").replace(",", ".")) || 0;
+        const ma = pn(row["Meta Anual (R$)"] || row["Meta Anual"]);
+        const q1 = pn(row["Meta Q1 (R$)"] || row["Meta Q1"]), q2 = pn(row["Meta Q2 (R$)"] || row["Meta Q2"]);
+        const q3 = pn(row["Meta Q3 (R$)"] || row["Meta Q3"]), q4 = pn(row["Meta Q4 (R$)"] || row["Meta Q4"]);
+        let annualGoal, goals;
+        if (q1 > 0 || q2 > 0 || q3 > 0 || q4 > 0) { goals = [q1, q2, q3, q4]; annualGoal = goals.reduce((s, x) => s + x, 0); }
+        else if (ma > 0) { annualGoal = ma; goals = [ma * 0.25, ma * 0.25, ma * 0.25, ma * 0.25]; }
+        else return { name, error: "Meta não definida" };
+        const rs = String(row["Rebate"] || "").toLowerCase();
+        const rebate = rs === "sim" || rs === "yes" || rs === "true";
+        const labels = ["1º Trimestre", "2º Trimestre", "3º Trimestre", "4º Trimestre"];
+        const quarters = labels.map((label, i) => ({ label, goal: goals[i], realized: 0, lastUpdate: null }));
+        return { id: Date.now() + Math.random(), name, year, annualGoal, quarters, rebate };
+      }).filter((r) => r.name !== "");
+      if (parsed.length === 0) { setImportErr("Nenhuma linha encontrada."); return; }
+      setImportRows(parsed);
+    } catch (ex) { setImportErr("Erro ao ler arquivo: " + ex.message); }
+    e.target.value = "";
+  };
+  const handleImportConfirm = async (rows) => {
+    for (const c of rows) await onSaveClient({ ...c, id: Date.now() + Math.random() });
+    setImportRows(null);
+  };
 
   const inner = (
     <div style={{ padding: isMobile ? "18px 20px 80px" : "28px 36px 60px" }}>
@@ -540,10 +700,13 @@ function ClientList({ clients, currentUser, users, isMobile, onSelect, onSaveCli
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div style={{ fontSize: isMobile ? 13 : 15, color: "#555" }}>{visibleClients.length} empresa{visibleClients.length !== 1 ? "s" : ""}</div>
         <div style={{ display: "flex", gap: 8 }}>
-          {isMobile && <button onClick={() => setShowUsers(true)} style={{ background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 10, color: "#888", fontSize: 12, padding: "7px 12px", cursor: "pointer", fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>👥</button>}
+          {currentUser.isAdmin && (<button onClick={() => importRef.current && importRef.current.click()} style={{ background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 10, color: "#aaa", fontSize: 12, padding: isMobile ? "7px 10px" : "8px 14px", cursor: "pointer", fontWeight: 600, fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6 }}>📥 {!isMobile && "Importar Excel"}</button>)}
+          {isMobile && currentUser.isAdmin && <button onClick={() => setShowUsers(true)} style={{ background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 10, color: "#888", fontSize: 12, padding: "7px 12px", cursor: "pointer", fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>👥</button>}
           {!isMobile && currentUser.isAdmin && <button onClick={() => setShowUsers(true)} style={{ background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 10, color: "#aaa", fontSize: 12, padding: "8px 14px", cursor: "pointer", fontWeight: 600, fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6 }}>👥 Usuários</button>}
         </div>
       </div>
+      <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleImportFile} />
+      {importErr && <div style={{ color: "#ef4444", fontSize: 12, padding: "8px 12px", background: "#ef444411", borderRadius: 8, marginBottom: 12 }}>⚠️ {importErr}</div>}
       {!isMobile ? (
         <div style={{ background: "#111", borderRadius: 16, border: "1px solid #1a1a1a", overflow: "hidden" }}>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 1.5fr 100px 120px", padding: "10px 20px", borderBottom: "1px solid #1a1a1a" }}>
@@ -560,7 +723,7 @@ function ClientList({ clients, currentUser, users, isMobile, onSelect, onSaveCli
                 <div style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }} onClick={() => onSelect(c)}>
                   <Avatar name={c.name} size={36} fs={16} />
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#f0f0f0" }}>{c.name}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ fontSize: 14, fontWeight: 700, color: "#f0f0f0" }}>{c.name}</span>{currentUser.isAdmin && c.rebate && <span style={{ fontSize: 9, padding: "1px 6px", background: "#1a0d00", border: "1px solid #f59e0b44", borderRadius: 4, color: "#f59e0b", fontWeight: 700 }}>REBATE</span>}</div>
                     <div style={{ fontSize: 11, color: "#444" }}>{c.year}</div>
                   </div>
                 </div>
@@ -571,8 +734,8 @@ function ClientList({ clients, currentUser, users, isMobile, onSelect, onSaveCli
                   <ProgressBar value={p} thin />
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
-                  <button onClick={() => setEditClient(c)} style={{ padding: "5px 9px", background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 7, color: "#888", fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>✏️</button>
-                  {currentUser.isAdmin && <button onClick={() => setDeleteClient(c)} style={{ padding: "5px 9px", background: "#1a0a0a", border: "1px solid #e5393533", borderRadius: 7, color: "#ff6f61", fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>🗑️</button>}
+                  {canEdit && <button onClick={() => setEditClient(c)} style={{ padding: "5px 9px", background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 7, color: "#888", fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>✏️</button>}
+                  {canDelete && <button onClick={() => setDeleteClient(c)} style={{ padding: "5px 9px", background: "#1a0a0a", border: "1px solid #e5393533", borderRadius: 7, color: "#ff6f61", fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>🗑️</button>}
                 </div>
               </div>
             );
@@ -610,12 +773,13 @@ function ClientList({ clients, currentUser, users, isMobile, onSelect, onSaveCli
           })}
         </div>
       )}
-      <button onClick={() => setShowAdd(true)} style={{ width: "100%", padding: "14px", background: "none", border: "1px dashed #282828", borderRadius: 14, color: "#555", fontSize: 13, cursor: "pointer", fontWeight: 600, marginTop: 12, fontFamily: "'DM Sans', sans-serif" }}>
+      {canAdd && <button onClick={() => setShowAdd(true)} style={{ width: "100%", padding: "14px", background: "none", border: "1px dashed #282828", borderRadius: 14, color: "#555", fontSize: 13, cursor: "pointer", fontWeight: 600, marginTop: 12, fontFamily: "'DM Sans', sans-serif" }}>
         + Nova Empresa
-      </button>
+      </button>}
       {showUsers && <UserModal users={users} clients={clients} onAdd={onAddUser} onDelete={onDeleteUser} onUpdateUser={onUpdateUser} onUpdateUserCompanies={onUpdateUserCompanies} onClose={() => setShowUsers(false)} />}
-      {(showAdd || editClient) && <CompanyModal existing={editClient} onSave={onSaveClient} onClose={() => { setShowAdd(false); setEditClient(null); }} />}
+      {(showAdd || editClient) && <CompanyModal existing={editClient} isAdmin={currentUser.isAdmin} onSave={onSaveClient} onClose={() => { setShowAdd(false); setEditClient(null); }} />}
       {deleteClient && <ConfirmModal name={deleteClient.name} onConfirm={() => { onDeleteClient(deleteClient.id); setDeleteClient(null); }} onClose={() => setDeleteClient(null)} />}
+      {importRows && <ImportPreviewModal rows={importRows} onConfirm={handleImportConfirm} onClose={() => setImportRows(null)} />}
     </div>
   );
 
@@ -653,7 +817,7 @@ function ClientList({ clients, currentUser, users, isMobile, onSelect, onSaveCli
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-function Dashboard({ client, isMobile, onBack, onUpdate }) {
+function Dashboard({ client, isMobile, onBack, onUpdate, canUpdate }) {
   const [modal, setModal] = useState(null);
   const total = client.quarters.reduce((s, q) => s + q.realized, 0);
   const annualPct = pct(total, client.annualGoal);
@@ -719,7 +883,7 @@ function Dashboard({ client, isMobile, onBack, onUpdate }) {
                       <span style={{ fontSize: 12, color: GREEN, fontWeight: 700 }} className="print-value-green">{qPct}% atingido</span>
                       {q.lastUpdate && <span style={{ fontSize: 10, color: "#2a2a2a" }}>{fmtDate(q.lastUpdate)}</span>}
                     </div>
-                    <button className="no-print" onClick={() => setModal(i)} style={{ position: "absolute", top: 12, right: 12, background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 8, color: "#888", fontSize: 11, fontWeight: 700, padding: "5px 10px", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>✏️ Atualizar</button>
+                    {canUpdate && <button className="no-print" onClick={() => setModal(i)} style={{ position: "absolute", top: 12, right: 12, background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 8, color: "#888", fontSize: 11, fontWeight: 700, padding: "5px 10px", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>✏️ Atualizar</button>}
                   </div>
                   <div className="print-card" style={{ background: "#111", borderRadius: 14, padding: isMobile ? "14px" : "18px 20px", border: "1px solid " + RED + "28" }}>
                     <div style={{ fontSize: 10, color: "#666", letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 6 }}>Faltante {q.label}</div>
@@ -917,7 +1081,7 @@ export default function App() {
   }, []);
 
   const handleSaveClient = async (c) => {
-    const row = { id: c.id, name: c.name, year: c.year, annual_goal: c.annualGoal, quarters: c.quarters };
+    const row = { id: c.id, name: c.name, year: c.year, annual_goal: c.annualGoal, quarters: c.quarters, rebate: c.rebate || false };
     await supabase.from("companies").upsert(row);
     setClients((prev) => { const exists = prev.find((x) => x.id === c.id); return exists ? prev.map((x) => x.id === c.id ? c : x) : [...prev, c]; });
   };
@@ -962,8 +1126,14 @@ export default function App() {
     if (currentUser && currentUser.id === userId) setCurrentUser((prev) => ({ ...prev, companyIds }));
   };
 
+  const handleUpdatePermissions = async (userId, permissions) => {
+    await supabase.from("users").update({ permissions }).eq("id", userId);
+    setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, permissions } : u));
+    if (currentUser && currentUser.id === userId) setCurrentUser((prev) => ({ ...prev, permissions }));
+  };
+
   const handleAddUser = async (u) => {
-    const row = { id: u.id, username: u.username, email: u.email || "", password: u.password, is_admin: false, company_ids: [], avatar_url: "" };
+    const row = { id: u.id, username: u.username, email: u.email || "", password: u.password, is_admin: false, company_ids: [], avatar_url: "", permissions: {} };
     await supabase.from("users").insert(row);
     setUsers((prev) => [...prev, u]);
   };
@@ -981,17 +1151,20 @@ export default function App() {
   const handleNav = (target) => {
     if (target === "kpi") setScreen("kpi");
     else if (target === "settings") setScreen("settings");
+    else if (target === "permissions") setScreen("permissions");
     else setScreen("clients");
   };
 
   const kpiClients = currentUser && currentUser.isAdmin ? clients : clients.filter((c) => (currentUser ? currentUser.companyIds || [] : []).includes(c.id));
+  const canUpdate = currentUser ? currentUser.isAdmin || !!(currentUser.permissions && currentUser.permissions.canUpdateGoals) : false;
 
   if (loading) return <LoadingScreen />;
   if (screen === "login") return <LoginScreen users={users} appIcon={appIcon} onLogin={(u) => { setCurrentUser(u); setScreen("clients"); }} />;
 
   const mainContent = (() => {
     if (screen === "kpi") return <KpiDashboard clients={kpiClients} isMobile={isMobile} onBack={() => setScreen("clients")} />;
-    if (screen === "dashboard") return <Dashboard client={selected} isMobile={isMobile} onBack={() => setScreen("clients")} onUpdate={handleUpdate} />;
+    if (screen === "dashboard") return <Dashboard client={selected} isMobile={isMobile} onBack={() => setScreen("clients")} onUpdate={handleUpdate} canUpdate={canUpdate} />;
+    if (screen === "permissions" && currentUser.isAdmin) return <PermissionsScreen users={users} onUpdatePermissions={handleUpdatePermissions} isMobile={isMobile} onBack={() => setScreen("clients")} />;
     if (screen === "settings") return <SettingsScreen currentUser={currentUser} appIcon={appIcon} onUpdateUser={handleUpdateUser} onUpdateAppIcon={handleUpdateAppIcon} isMobile={isMobile} onBack={() => setScreen("clients")} />;
     return <ClientList clients={clients} currentUser={currentUser} users={users} isMobile={isMobile} onSelect={handleSelect} onSaveClient={handleSaveClient} onDeleteClient={handleDeleteClient} onAddUser={handleAddUser} onDeleteUser={handleDeleteUser} onUpdateUser={handleUpdateUser} onUpdateUserCompanies={handleUpdateUserCompanies} onLogout={() => { setCurrentUser(null); setScreen("login"); }} onKpi={() => setScreen("kpi")} onSettings={() => setScreen("settings")} />;
   })();
