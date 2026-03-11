@@ -233,62 +233,57 @@ function SettingsScreen({ currentUser, appIcon, onUpdateUser, onUpdateAppIcon, i
     setPass(""); setPass2("");
   };
 
-  const hdrPad = isMobile ? HDR_PAD_MOBILE + " 22px 22px" : HDR_PAD_DESKTOP + " 36px 24px";
-
-  const settingsHeader = (
+  const hdr = (
     <div className={isMobile ? "kp-hdr" : ""} style={{ background: "#0d0d0d", paddingTop: isMobile ? HDR_PAD_MOBILE : HDR_PAD_DESKTOP, paddingBottom: 22, paddingLeft: isMobile ? 22 : 36, paddingRight: isMobile ? 22 : 36, borderBottom: "1px solid #181818" }}>
-        {isMobile && (
-          <button onClick={onBack} style={{ background: "none", border: "none", color: "#e53935", cursor: "pointer", fontSize: 13, fontWeight: 700, padding: 0, marginBottom: 12, display: "flex", alignItems: "center", gap: 5, fontFamily: "'DM Sans', sans-serif" }}>
-            ← Voltar
-          </button>
-        )}
-        <div style={{ fontSize: 11, color: "#e53935", fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>KP REPRESENTAÇÃO</div>
-        <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, color: "#f0f0f0", letterSpacing: -0.5 }}>⚙️ Configurações</div>
-        <div style={{ fontSize: 13, color: "#555", marginTop: 4 }}>Personalize sua conta</div>
-      </div>
-      <div style={{ padding: isMobile ? "20px 18px 60px" : "28px 36px", maxWidth: 560 }}>
-        {msg && <div style={{ background: "#22c55e18", border: "1px solid #22c55e44", borderRadius: 12, padding: "12px 16px", marginBottom: 18, color: GREEN, fontSize: 13 }}>✅ {msg}</div>}
-        {err && <div style={{ background: "#ef444418", border: "1px solid #ef444444", borderRadius: 12, padding: "12px 16px", marginBottom: 18, color: RED, fontSize: 13 }}>⚠️ {err}</div>}
-        <div style={{ background: "#111", borderRadius: 16, padding: 22, border: "1px solid #1a1a1a", marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#f0f0f0", marginBottom: 18 }}>👤 Meu Perfil</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
-            {avPrev
-              ? <img src={avPrev} style={{ width: 72, height: 72, borderRadius: 36, objectFit: "cover", border: "2px solid #2a2a2a", flexShrink: 0 }} alt="avatar" />
-              : <div style={{ width: 72, height: 72, borderRadius: 36, background: "linear-gradient(135deg,#e53935,#c62828)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, color: "#fff", fontWeight: 700, flexShrink: 0 }}>{currentUser.username[0]?.toUpperCase()}</div>}
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#f0f0f0", marginBottom: 4 }}>{currentUser.username}</div>
-              <div style={{ fontSize: 11, color: "#555", marginBottom: 10 }}>{currentUser.isAdmin ? "Administrador" : "Usuário"}</div>
-              <button onClick={() => avRef.current.click()} style={{ padding: "7px 14px", background: "#1e1e1e", border: "1px solid #333", borderRadius: 8, color: "#aaa", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>📷 Alterar foto</button>
-              <input ref={avRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => readFile(e, setAvPrev)} />
-            </div>
-          </div>
-          <FL>Nome de usuário</FL>
-          <input value={name} onChange={(e) => setName(e.target.value)} style={{ ...IS, marginTop: 6 }} />
-          <FL mt={14}>Nova senha</FL>
-          <input type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="deixe em branco para manter" style={{ ...IS, marginTop: 6 }} />
-          <FL mt={12}>Confirmar nova senha</FL>
-          <input type="password" value={pass2} onChange={(e) => setPass2(e.target.value)} placeholder="repita a nova senha" style={{ ...IS, marginTop: 6 }} />
-          <button onClick={saveProfile} style={{ ...BS, marginTop: 18 }}>Salvar Perfil</button>
-        </div>
-        {currentUser.isAdmin && (
-          <div style={{ background: "#111", borderRadius: 16, padding: 22, border: "1px solid #1a1a1a" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#f0f0f0", marginBottom: 18 }}>🖼️ Ícone do App</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
-              {icoPrev
-                ? <img src={icoPrev} style={{ width: 64, height: 64, borderRadius: 14, objectFit: "cover", border: "2px solid #2a2a2a" }} alt="app icon" />
-                : <div style={{ width: 64, height: 64, borderRadius: 14, background: "linear-gradient(135deg,#e53935,#c62828)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>📊</div>}
-              <div>
-                <div style={{ fontSize: 12, color: "#888", marginBottom: 10 }}>Aparece no login e na sidebar</div>
-                <button onClick={() => icoRef.current.click()} style={{ padding: "7px 14px", background: "#1e1e1e", border: "1px solid #333", borderRadius: 8, color: "#aaa", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>📁 Escolher imagem</button>
-                <input ref={icoRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => readFile(e, setIcoPrev)} />
-              </div>
-            </div>
-            <button onClick={() => { onUpdateAppIcon(icoPrev); flash(true, "Ícone do app atualizado!"); }} style={BS}>Salvar Ícone</button>
-          </div>
-        )}
-      </div>
+      {isMobile && (<button onClick={onBack} style={{ background: "none", border: "none", color: "#e53935", cursor: "pointer", fontSize: 13, fontWeight: 700, padding: 0, marginBottom: 12, display: "flex", alignItems: "center", gap: 5, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>)}
+      <div style={{ fontSize: 11, color: "#e53935", fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>KP REPRESENTAÇÃO</div>
+      <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, color: "#f0f0f0", letterSpacing: -0.5 }}>⚙️ Configurações</div>
+      <div style={{ fontSize: 13, color: "#555", marginTop: 4 }}>Personalize sua conta</div>
     </div>
   );
+  const body = (
+    <div style={{ padding: isMobile ? "20px 18px 60px" : "28px 36px", maxWidth: 560 }}>
+      {msg && <div style={{ background: "#22c55e18", border: "1px solid #22c55e44", borderRadius: 12, padding: "12px 16px", marginBottom: 18, color: GREEN, fontSize: 13 }}>✅ {msg}</div>}
+      {err && <div style={{ background: "#ef444418", border: "1px solid #ef444444", borderRadius: 12, padding: "12px 16px", marginBottom: 18, color: RED, fontSize: 13 }}>⚠️ {err}</div>}
+      <div style={{ background: "#111", borderRadius: 16, padding: 22, border: "1px solid #1a1a1a", marginBottom: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#f0f0f0", marginBottom: 18 }}>👤 Meu Perfil</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
+          {avPrev ? <img src={avPrev} style={{ width: 72, height: 72, borderRadius: 36, objectFit: "cover", border: "2px solid #2a2a2a", flexShrink: 0 }} alt="avatar" />
+            : <div style={{ width: 72, height: 72, borderRadius: 36, background: "linear-gradient(135deg,#e53935,#c62828)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, color: "#fff", fontWeight: 700, flexShrink: 0 }}>{currentUser.username[0]?.toUpperCase()}</div>}
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#f0f0f0", marginBottom: 4 }}>{currentUser.username}</div>
+            <div style={{ fontSize: 11, color: "#555", marginBottom: 10 }}>{currentUser.isAdmin ? "Administrador" : "Usuário"}</div>
+            <button onClick={() => avRef.current.click()} style={{ padding: "7px 14px", background: "#1e1e1e", border: "1px solid #333", borderRadius: 8, color: "#aaa", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>📷 Alterar foto</button>
+            <input ref={avRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => readFile(e, setAvPrev)} />
+          </div>
+        </div>
+        <FL>Nome de usuário</FL>
+        <input value={name} onChange={(e) => setName(e.target.value)} style={{ ...IS, marginTop: 6 }} />
+        <FL mt={14}>Nova senha</FL>
+        <input type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="deixe em branco para manter" style={{ ...IS, marginTop: 6 }} />
+        <FL mt={12}>Confirmar nova senha</FL>
+        <input type="password" value={pass2} onChange={(e) => setPass2(e.target.value)} placeholder="repita a nova senha" style={{ ...IS, marginTop: 6 }} />
+        <button onClick={saveProfile} style={{ ...BS, marginTop: 18 }}>Salvar Perfil</button>
+      </div>
+      {currentUser.isAdmin && (
+        <div style={{ background: "#111", borderRadius: 16, padding: 22, border: "1px solid #1a1a1a" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#f0f0f0", marginBottom: 18 }}>🖼️ Ícone do App</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
+            {icoPrev ? <img src={icoPrev} style={{ width: 64, height: 64, borderRadius: 14, objectFit: "cover", border: "2px solid #2a2a2a" }} alt="app icon" />
+              : <div style={{ width: 64, height: 64, borderRadius: 14, background: "linear-gradient(135deg,#e53935,#c62828)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>📊</div>}
+            <div>
+              <div style={{ fontSize: 12, color: "#888", marginBottom: 10 }}>Aparece no login e na sidebar</div>
+              <button onClick={() => icoRef.current.click()} style={{ padding: "7px 14px", background: "#1e1e1e", border: "1px solid #333", borderRadius: 8, color: "#aaa", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>📁 Escolher imagem</button>
+              <input ref={icoRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => readFile(e, setIcoPrev)} />
+            </div>
+          </div>
+          <button onClick={() => { onUpdateAppIcon(icoPrev); flash(true, "Ícone do app atualizado!"); }} style={BS}>Salvar Ícone</button>
+        </div>
+      )}
+    </div>
+  );
+  if (isMobile) return <div className="kp-page" style={{ fontFamily: "'DM Sans', sans-serif" }}>{hdr}<div className="kp-body">{body}</div></div>;
+  return <div style={{ minHeight: "100vh", background: "#080808", fontFamily: "'DM Sans', sans-serif" }}>{hdr}{body}</div>;
 }
 
 
