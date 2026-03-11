@@ -9,7 +9,7 @@ const supabase = createClient(
 );
 
 // ─── DB HELPERS ───────────────────────────────────────────────────────────────
-const dbToUser = (r) => ({ id: r.id, username: r.username, password: r.password, isAdmin: r.is_admin, companyIds: r.company_ids || [], avatarUrl: r.avatar_url || "" });
+const dbToUser = (r) => ({ id: r.id, username: r.username, email: r.email || "", password: r.password, isAdmin: r.is_admin, companyIds: r.company_ids || [], avatarUrl: r.avatar_url || "" });
 const dbToClient = (r) => ({ id: r.id, name: r.name, year: r.year, annualGoal: r.annual_goal, quarters: r.quarters });
 
 // ─── GLOBAL RESET ─────────────────────────────────────────────────────────────
@@ -125,7 +125,8 @@ function LoginScreen({ users, appIcon, onLogin }) {
     if (!u || !p) { setErr("Preencha todos os campos."); return; }
     setLoading(true);
     setTimeout(() => {
-      const found = users.find(x => x.username === u && x.password === p);
+      const input = u.trim().toLowerCase();
+      const found = users.find(x => (x.username.toLowerCase() === input || (x.email && x.email.toLowerCase() === input)) && x.password === p);
       if (found) onLogin(found); else { setErr("Usuário ou senha inválidos."); setLoading(false); }
     }, 600);
   };
@@ -138,10 +139,9 @@ function LoginScreen({ users, appIcon, onLogin }) {
             : <div style={{ width: 64, height: 64, borderRadius: 18, background: "linear-gradient(135deg,#e53935,#c62828)", margin: "0 auto 16px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, boxShadow: "0 4px 28px #e5393540" }}>📊</div>}
           <div style={{ fontSize: 22, fontWeight: 800, color: "#f0f0f0", letterSpacing: -0.5 }}>Sales Tracker</div>
           <div style={{ fontSize: 13, color: "#555", marginTop: 4, letterSpacing: 0.5 }}>KP Representação</div>
-          <div style={{ fontSize: 11, color: "#2a2a2a", marginTop: 10, padding: "5px 10px", background: "#161616", borderRadius: 8, display: "inline-block" }}>admin/1234 · pedro/1234</div>
         </div>
-        <FL>Usuário</FL>
-        <input value={u} onChange={e => { setU(e.target.value); setErr(""); }} onKeyDown={e => e.key === "Enter" && submit()} placeholder="seu usuário" style={IS} />
+        <FL>Usuário ou E-mail</FL>
+        <input value={u} onChange={e => { setU(e.target.value); setErr(""); }} onKeyDown={e => e.key === "Enter" && submit()} placeholder="usuário ou e-mail" style={IS} />
         <FL mt={14}>Senha</FL>
         <input type="password" value={p} onChange={e => { setP(e.target.value); setErr(""); }} onKeyDown={e => e.key === "Enter" && submit()} placeholder="••••••" style={{ ...IS, marginTop: 8 }} />
         {err && <div style={{ color: "#ff6f61", fontSize: 13, marginTop: 10, padding: "8px 12px", background: "#ff6f6111", borderRadius: 8 }}>{err}</div>}
@@ -173,7 +173,7 @@ function SettingsScreen({ currentUser, appIcon, onUpdateUser, onUpdateAppIcon, i
 
   return (
     <div style={{ minHeight: "100vh", background: "#080808", fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ background: "#0d0d0d", padding: isMobile ? "52px 22px 22px" : "32px 36px 24px", borderBottom: "1px solid #181818" }}>
+      <div style={{ background: "#0d0d0d", padding: isMobile ? "56px 22px 22px" : "36px 36px 24px", borderBottom: "1px solid #181818" }}>
         {isMobile && <button onClick={onBack} style={{ background: "none", border: "none", color: "#e53935", cursor: "pointer", fontSize: 13, fontWeight: 700, padding: 0, marginBottom: 12, display: "flex", alignItems: "center", gap: 5, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>}
         <div style={{ fontSize: 11, color: "#e53935", fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>KP REPRESENTAÇÃO</div>
         <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, color: "#f0f0f0", letterSpacing: -0.5 }}>⚙️ Configurações</div>
@@ -230,15 +230,89 @@ function SettingsScreen({ currentUser, appIcon, onUpdateUser, onUpdateAppIcon, i
 
 // ─── USER MODAL ───────────────────────────────────────────────────────────────
 function UserModal({ users, clients, onAdd, onDelete, onUpdateUser, onUpdateUserCompanies, onClose }) {
-  const [nu, setNu] = useState(""); const [np, setNp] = useState(""); const [err, setErr] = useState(""); const [ok, setOk] = useState("");
+  const [nu, setNu] = useState(""); const [ne, setNe] = useState(""); const [np, setNp] = useState(""); const [err, setErr] = useState(""); const [ok, setOk] = useState("");
   const [expandedUser, setExpandedUser] = useState(null); const [editName, setEditName] = useState(""); const [editPass, setEditPass] = useState(""); const [editErr, setEditErr] = useState("");
 
   const add = () => {
     if (!nu.trim() || !np.trim()) { setErr("Preencha usuário e senha."); return; }
+    if (ne.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ne.trim())) { setErr("E-mail inválido."); return; }
     if (users.find(x => x.username === nu.trim())) { setErr("Usuário já existe."); return; }
-    onAdd({ id: Date.now().toString(), username: nu.trim(), password: np.trim(), isAdmin: false, companyIds: [], avatarUrl: "" });
-    const n = nu.trim(); setNu(""); setNp(""); setErr(""); setOk(`Usuário "${n}" criado!`); setTimeout(() => setOk(""), 2500);
+    if (ne.trim() && users.find(x => x.email && x.email === ne.trim())) { setErr("E-mail já cadastrado."); return; }
+    onAdd({ id: Date.now().toString(), username: nu.trim(), email: ne.trim(), password: np.trim(), isAdmin: false, companyIds: [], avatarUrl: "" });
+    const n = nu.trim(); setNu(""); setNe(""); setNp(""); setErr(""); setOk(`Usuário "${n}" criado!`); setTimeout(() => setOk(""), 2500);
   };
+  const saveEdit = (u) => {
+    if (!editName.trim()) { setEditErr("Nome não pode ser vazio."); return; }
+    if (users.find(x => x.username === editName.trim() && x.id !== u.id)) { setEditErr("Esse nome já está em uso."); return; }
+    onUpdateUser(u.id, { username: editName.trim(), password: editPass.trim() !== "" ? editPass.trim() : u.password });
+    setExpandedUser(null); setOk("Usuário atualizado!"); setTimeout(() => setOk(""), 2500);
+  };
+  const toggleCompany = (userId, companyId, currentIds) => { const next = currentIds.includes(companyId) ? currentIds.filter(id => id !== companyId) : [...currentIds, companyId]; onUpdateUserCompanies(userId, next); };
+  const togglePanel = (uid, mode) => {
+    if (expandedUser?.id === uid && expandedUser?.mode === mode) { setExpandedUser(null); return; }
+    if (mode === "edit") { const u = users.find(x => x.id === uid); setEditName(u.username); setEditPass(""); setEditErr(""); }
+    setExpandedUser({ id: uid, mode });
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#000c", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300, fontFamily: "'DM Sans', sans-serif" }} onClick={onClose}>
+      <div style={{ background: "#141414", borderRadius: 20, padding: 28, width: 390, border: "1px solid #282828", maxHeight: "88vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div style={{ fontSize: 17, fontWeight: 700, color: "#f0f0f0" }}>👥 Usuários</div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>×</button>
+        </div>
+        {users.map(u => (
+          <div key={u.id} style={{ background: "#1c1c1c", borderRadius: 12, marginBottom: 8, border: "1px solid #282828", overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <Avatar url={u.avatarUrl} name={u.username} size={30} fs={13} />
+                <div>
+                  <div style={{ color: "#f0f0f0", fontSize: 14, fontWeight: 600 }}>{u.username}</div>
+                  <div style={{ color: "#555", fontSize: 11 }}>{u.isAdmin ? "Administrador" : u.email ? u.email : `${(u.companyIds || []).length} empresa(s)`}</div>
+                </div>
+              </div>
+              {!u.isAdmin && (
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button onClick={() => togglePanel(u.id, "edit")} style={{ background: expandedUser?.id === u.id && expandedUser?.mode === "edit" ? "#1a2a1a" : "#282828", border: `1px solid ${expandedUser?.id === u.id && expandedUser?.mode === "edit" ? GREEN + "44" : "#383838"}`, borderRadius: 8, color: "#aaa", fontSize: 11, padding: "4px 10px", cursor: "pointer" }}>✏️ Editar</button>
+                  <button onClick={() => togglePanel(u.id, "companies")} style={{ background: expandedUser?.id === u.id && expandedUser?.mode === "companies" ? "#1a1a2a" : "#282828", border: `1px solid ${expandedUser?.id === u.id && expandedUser?.mode === "companies" ? BLUE + "44" : "#383838"}`, borderRadius: 8, color: "#aaa", fontSize: 11, padding: "4px 10px", cursor: "pointer" }}>🏢</button>
+                  <button onClick={() => onDelete(u.id)} style={{ background: "#1a0a0a", border: "1px solid #e5393533", borderRadius: 8, color: "#ff6f61", fontSize: 11, padding: "4px 10px", cursor: "pointer" }}>🗑️</button>
+                </div>
+              )}
+            </div>
+            {expandedUser?.id === u.id && expandedUser?.mode === "edit" && (
+              <div style={{ borderTop: "1px solid #282828", padding: 14, background: "#161616" }}>
+                <FL>Novo nome</FL>
+                <input value={editName} onChange={e => { setEditName(e.target.value); setEditErr(""); }} style={{ ...IS, marginTop: 5, fontSize: 13, padding: "9px 12px" }} />
+                <FL mt={10}>Nova senha <span style={{ color: "#3a3a3a", textTransform: "none", letterSpacing: 0 }}>(em branco = manter)</span></FL>
+                <input type="password" value={editPass} onChange={e => { setEditPass(e.target.value); setEditErr(""); }} placeholder="••••••" style={{ ...IS, marginTop: 5, fontSize: 13, padding: "9px 12px" }} />
+                {editErr && <div style={{ color: RED, fontSize: 11, marginTop: 6 }}>{editErr}</div>}
+                <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                  <button onClick={() => setExpandedUser(null)} style={{ flex: 1, padding: "8px", background: "#282828", border: "none", borderRadius: 8, color: "#888", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancelar</button>
+                  <button onClick={() => saveEdit(u)} style={{ flex: 1, padding: "8px", background: GREEN, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Salvar</button>
+                </div>
+              </div>
+            )}
+            {expandedUser?.id === u.id && expandedUser?.mode === "companies" && (
+              <div style={{ borderTop: "1px solid #282828", padding: "10px 14px", background: "#161616" }}>
+                <div style={{ fontSize: 10, color: "#555", marginBottom: 8, letterSpacing: 1 }}>EMPRESAS VISÍVEIS</div>
+                {clients.map(c => { const ids = u.companyIds || []; const active = ids.includes(c.id); return <div key={c.id} onClick={() => toggleCompany(u.id, c.id, ids)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", borderRadius: 8, marginBottom: 4, cursor: "pointer", background: active ? "#1a2a1a" : "#1e1e1e", border: `1px solid ${active ? GREEN + "33" : "#282828"}` }}><span style={{ fontSize: 13, color: active ? GREEN : "#888" }}>{c.name}</span><span style={{ fontSize: 16 }}>{active ? "✓" : "○"}</span></div>; })}
+              </div>
+            )}
+          </div>
+        ))}
+        <div style={{ height: 1, background: "#1e1e1e", margin: "18px 0" }} />
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#f0f0f0", marginBottom: 12 }}>Novo Usuário</div>
+        <FL>Usuário</FL><input value={nu} onChange={e => { setNu(e.target.value); setErr(""); }} placeholder="nome de usuário" style={IS} />
+        <FL mt={10}>E-mail <span style={{ color: "#3a3a3a", textTransform: "none", letterSpacing: 0 }}>(opcional)</span></FL>
+        <input type="email" value={ne} onChange={e => { setNe(e.target.value); setErr(""); }} placeholder="email@exemplo.com" style={{ ...IS, marginTop: 6 }} />
+        <FL mt={10}>Senha</FL><input value={np} onChange={e => { setNp(e.target.value); setErr(""); }} placeholder="senha" style={{ ...IS, marginTop: 6 }} />
+        {err && <div style={{ color: "#ff6f61", fontSize: 12, marginTop: 8, padding: "7px 12px", background: "#ff6f6111", borderRadius: 8 }}>{err}</div>}
+        {ok && <div style={{ color: GREEN, fontSize: 12, marginTop: 8, padding: "7px 12px", background: "#22c55e11", borderRadius: 8 }}>{ok}</div>}
+        <button onClick={add} style={{ ...BS, marginTop: 14 }}>Criar Usuário</button>
+      </div>
+    </div>
+  );
+}
   const saveEdit = (u) => {
     if (!editName.trim()) { setEditErr("Nome não pode ser vazio."); return; }
     if (users.find(x => x.username === editName.trim() && x.id !== u.id)) { setEditErr("Esse nome já está em uso."); return; }
@@ -469,7 +543,7 @@ function ClientList({ clients, currentUser, users, isMobile, onSelect, onSaveCli
 
   if (isMobile) return (
     <div style={{ minHeight: "100vh", background: "#080808", fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ background: "#0f0f0f", padding: "52px 22px 22px", borderBottom: "1px solid #181818" }}>
+      <div style={{ background: "#0f0f0f", padding: "56px 22px 22px", borderBottom: "1px solid #181818" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <div style={{ fontSize: 11, color: "#e53935", fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>KP REPRESENTAÇÃO</div>
@@ -560,7 +634,7 @@ function Dashboard({ client, isMobile, onBack, onUpdate }) {
   );
 
   const header = (
-    <div style={{ background: "#0f0f0f", padding: isMobile ? "52px 20px 18px" : "28px 36px 20px", borderBottom: "1px solid #181818" }}>
+    <div style={{ background: "#0f0f0f", padding: isMobile ? "56px 20px 18px" : "36px 36px 20px", borderBottom: "1px solid #181818", position: "sticky", top: 0, zIndex: 40 }}>
       <button className="no-print" onClick={onBack} style={{ background: "none", border: "none", color: "#e53935", cursor: "pointer", fontSize: 13, fontWeight: 700, padding: 0, marginBottom: 14, display: "flex", alignItems: "center", gap: 5, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>
       {/* Card de identificação do cliente */}
       <div style={{ background: "linear-gradient(135deg,#160404,#1c0808)", borderRadius: 14, padding: isMobile ? "14px 16px" : "18px 20px", border: "1px solid #e5393525", display: "flex", alignItems: "center", gap: 16 }}>
@@ -607,7 +681,7 @@ function KpiDashboard({ clients, isMobile, onBack }) {
 
   return (
     <div className="print-page" style={{ minHeight: "100vh", background: "#080808", fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ background: "#0f0f0f", padding: isMobile ? "52px 20px 18px" : "28px 36px 20px", borderBottom: "1px solid #181818" }}>
+      <div style={{ background: "#0f0f0f", padding: isMobile ? "56px 20px 18px" : "36px 36px 20px", borderBottom: "1px solid #181818", position: "sticky", top: 0, zIndex: 40 }}>
         <button className="no-print" onClick={onBack} style={{ background: "none", border: "none", color: "#e53935", cursor: "pointer", fontSize: 13, fontWeight: 700, padding: 0, marginBottom: 10, display: "flex", alignItems: "center", gap: 5, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
@@ -792,6 +866,7 @@ export default function App() {
     if (changes.username !== undefined) dbChanges.username = changes.username;
     if (changes.password !== undefined) dbChanges.password = changes.password;
     if (changes.avatarUrl !== undefined) dbChanges.avatar_url = changes.avatarUrl;
+    if (changes.email !== undefined) dbChanges.email = changes.email;
     await supabase.from("users").update(dbChanges).eq("id", userId);
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...changes } : u));
     if (currentUser?.id === userId) setCurrentUser(prev => ({ ...prev, ...changes }));
@@ -804,7 +879,7 @@ export default function App() {
   };
 
   const handleAddUser = async (u) => {
-    const row = { id: u.id, username: u.username, password: u.password, is_admin: false, company_ids: [], avatar_url: "" };
+    const row = { id: u.id, username: u.username, email: u.email || "", password: u.password, is_admin: false, company_ids: [], avatar_url: "" };
     await supabase.from("users").insert(row);
     setUsers(prev => [...prev, u]);
   };
