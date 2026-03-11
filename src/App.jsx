@@ -13,10 +13,21 @@ const dbToUser = (r) => ({ id: r.id, username: r.username, email: r.email || "",
 const dbToClient = (r) => ({ id: r.id, name: r.name, year: r.year, annualGoal: r.annual_goal, quarters: r.quarters });
 
 // ─── GLOBAL RESET ─────────────────────────────────────────────────────────────
-const GLOBAL_CSS = `*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; } html, body { width: 100%; height: 100%; background: #080808; } #root { width: 100%; min-height: 100vh; }`;
+const GLOBAL_CSS = `
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; background: #080808; }
+#root { width: 100%; min-height: 100vh; }
+:root { --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px); }
+.kp-page { display: flex; flex-direction: column; height: 100dvh; height: 100vh; overflow: hidden; background: #080808; }
+.kp-header { flex-shrink: 0; }
+.kp-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+`;
 (function injectGlobal() {
   if (document.getElementById("kp-global")) return;
   const s = document.createElement("style"); s.id = "kp-global"; s.innerHTML = GLOBAL_CSS; document.head.prepend(s);
+  // Fix viewport for iOS safe area
+  const meta = document.querySelector('meta[name="viewport"]');
+  if (meta) meta.content = 'width=device-width, initial-scale=1, viewport-fit=cover';
 })();
 
 // ─── PRINT STYLES ─────────────────────────────────────────────────────────────
@@ -173,7 +184,7 @@ function SettingsScreen({ currentUser, appIcon, onUpdateUser, onUpdateAppIcon, i
 
   return (
     <div style={{ minHeight: "100vh", background: "#080808", fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ background: "#0d0d0d", padding: isMobile ? "56px 22px 22px" : "36px 36px 24px", borderBottom: "1px solid #181818" }}>
+      <div style={{ background: "#0d0d0d", padding: isMobile ? "calc(var(--sat) + 16px) 22px 22px" : "36px 36px 24px", borderBottom: "1px solid #181818" }}>
         {isMobile && <button onClick={onBack} style={{ background: "none", border: "none", color: "#e53935", cursor: "pointer", fontSize: 13, fontWeight: 700, padding: 0, marginBottom: 12, display: "flex", alignItems: "center", gap: 5, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>}
         <div style={{ fontSize: 11, color: "#e53935", fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>KP REPRESENTAÇÃO</div>
         <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, color: "#f0f0f0", letterSpacing: -0.5 }}>⚙️ Configurações</div>
@@ -476,7 +487,7 @@ function ClientList({ clients, currentUser, users, isMobile, onSelect, onSaveCli
 
   if (isMobile) return (
     <div style={{ minHeight: "100vh", background: "#080808", fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ background: "#0f0f0f", padding: "56px 22px 22px", borderBottom: "1px solid #181818" }}>
+      <div style={{ background: "#0f0f0f", padding: "calc(var(--sat) + 16px) 22px 22px", borderBottom: "1px solid #181818" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <div style={{ fontSize: 11, color: "#e53935", fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>KP REPRESENTAÇÃO</div>
@@ -495,7 +506,7 @@ function ClientList({ clients, currentUser, users, isMobile, onSelect, onSaveCli
 
   return (
     <div style={{ minHeight: "100vh", background: "#080808", fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ background: "#0d0d0d", padding: "32px 36px 24px", borderBottom: "1px solid #181818" }}>
+      <div style={{ background: "#0d0d0d", padding: "36px 36px 24px", borderBottom: "1px solid #181818" }}>
         <div style={{ fontSize: 11, color: "#e53935", fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>KP REPRESENTAÇÃO</div>
         <div style={{ fontSize: 28, fontWeight: 800, color: "#f0f0f0", letterSpacing: -0.5 }}>Carteira de Clientes</div>
         <div style={{ fontSize: 13, color: "#555", marginTop: 4 }}>Gerencie suas empresas e metas comerciais</div>
@@ -567,9 +578,8 @@ function Dashboard({ client, isMobile, onBack, onUpdate }) {
   );
 
   const header = (
-    <div style={{ background: "#0f0f0f", padding: isMobile ? "56px 20px 18px" : "36px 36px 20px", borderBottom: "1px solid #181818", position: "sticky", top: 0, zIndex: 40 }}>
+    <div className="kp-header" style={{ background: "#0f0f0f", padding: isMobile ? "calc(var(--sat) + 16px) 20px 18px" : "36px 36px 20px", borderBottom: "1px solid #181818" }}>
       <button className="no-print" onClick={onBack} style={{ background: "none", border: "none", color: "#e53935", cursor: "pointer", fontSize: 13, fontWeight: 700, padding: 0, marginBottom: 14, display: "flex", alignItems: "center", gap: 5, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>
-      {/* Card de identificação do cliente */}
       <div style={{ background: "linear-gradient(135deg,#160404,#1c0808)", borderRadius: 14, padding: isMobile ? "14px 16px" : "18px 20px", border: "1px solid #e5393525", display: "flex", alignItems: "center", gap: 16 }}>
         <Avatar name={client.name} size={isMobile ? 44 : 52} fs={isMobile ? 18 : 22} />
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -588,9 +598,11 @@ function Dashboard({ client, isMobile, onBack, onUpdate }) {
   );
 
   return (
-    <div className="print-page" style={{ minHeight: "100vh", background: "#080808", fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="print-page kp-page" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       {header}
-      {content}
+      <div className="kp-scroll">
+        {content}
+      </div>
       {modal !== null && <UpdateModal quarter={client.quarters[modal]} qIndex={modal} onSave={onUpdate} onClose={() => setModal(null)} />}
     </div>
   );
@@ -613,8 +625,8 @@ function KpiDashboard({ clients, isMobile, onBack }) {
   const monthsElapsed = 2.5; const projRealized = totalRealized * (12 / monthsElapsed); const projPct = pct(projRealized, totalGoal);
 
   return (
-    <div className="print-page" style={{ minHeight: "100vh", background: "#080808", fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ background: "#0f0f0f", padding: isMobile ? "56px 20px 18px" : "36px 36px 20px", borderBottom: "1px solid #181818", position: "sticky", top: 0, zIndex: 40 }}>
+    <div className="print-page kp-page" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      <div className="kp-header" style={{ background: "#0f0f0f", padding: isMobile ? "calc(var(--sat) + 16px) 20px 18px" : "36px 36px 20px", borderBottom: "1px solid #181818" }}>
         <button className="no-print" onClick={onBack} style={{ background: "none", border: "none", color: "#e53935", cursor: "pointer", fontSize: 13, fontWeight: 700, padding: 0, marginBottom: 10, display: "flex", alignItems: "center", gap: 5, fontFamily: "'DM Sans', sans-serif" }}>← Voltar</button>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
@@ -629,7 +641,8 @@ function KpiDashboard({ clients, isMobile, onBack }) {
         </div>
       </div>
 
-      <div style={{ padding: isMobile ? "16px 18px 80px" : "0 36px 60px" }}>
+      <div className="kp-scroll">
+        <div style={{ padding: isMobile ? "16px 18px 80px" : "0 36px 60px" }}>
         <SectionTitle>VISÃO GERAL</SectionTitle>
         <div className="print-card" style={{ background: "linear-gradient(135deg,#160404,#1c0808)", borderRadius: 16, padding: isMobile ? "16px" : "20px 24px", marginBottom: 14, border: "1px solid #e5393525" }}>
           <div style={{ fontSize: 10, color: "#888", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Realizado Total vs Meta Anual</div>
