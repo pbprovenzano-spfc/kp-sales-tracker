@@ -958,18 +958,11 @@ function ReportImageModal({ client, quarter, onClose }) {
       ctx.font = "800 42px Arial"; ctx.fillStyle = "#f59e0b";
       ctx.fillText(fmtBR(verba), rx + rw / 2, ry + 210);
 
-      const mult = isAnnual ? "0,04" : "0,02";
-      ctx.font = "400 12px Arial"; ctx.fillStyle = "#3a2f0a";
-      ctx.fillText(fmtS(realized) + "  ×  0,8  ×  " + mult, rx + rw / 2, ry + 238);
-
       ctx.strokeStyle = "#f59e0b15"; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(rx + 50, ry + 258); ctx.lineTo(rx + rw - 50, ry + 258); ctx.stroke();
-
-      ctx.font = "400 10px Arial"; ctx.fillStyle = "#2e2510";
-      ctx.fillText("Base de cálculo: valor realizado × 80% (net)", rx + rw / 2, ry + 282);
+      ctx.beginPath(); ctx.moveTo(rx + 50, ry + 234); ctx.lineTo(rx + rw - 50, ry + 234); ctx.stroke();
 
       ctx.font = "13px Arial"; ctx.fillStyle = "#3a2f0a";
-      ctx.fillText("✦    ✦    ✦", rx + rw / 2, ry + 330);
+      ctx.fillText("✦    ✦    ✦", rx + rw / 2, ry + 290);
 
     } else {
       // In-progress box
