@@ -816,9 +816,244 @@ function ClientList({ clients, currentUser, users, isMobile, onSelect, onSaveCli
   );
 }
 
+
+// ─── REPORT IMAGE MODAL ───────────────────────────────────────────────────────
+function ReportImageModal({ client, quarter, onClose }) {
+  const canvasRef = useRef();
+  const isAnnual = !quarter;
+  const realized = isAnnual ? client.quarters.reduce((s, q) => s + q.realized, 0) : quarter.realized;
+  const goal = isAnnual ? client.annualGoal : quarter.goal;
+  const progress = goal > 0 ? Math.min(100, Math.round((realized / goal) * 100)) : 0;
+  const achieved = realized >= goal && goal > 0;
+  const verba = achieved ? (isAnnual ? realized * 0.8 * 0.04 : realized * 0.8 * 0.02) : null;
+  const periodLabel = isAnnual ? "META ANUAL" : quarter.label.toUpperCase();
+  const fmtBR = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const fmtS = (v) => v >= 1e6 ? "R$ " + (v / 1e6).toFixed(2) + "M" : v >= 1e3 ? "R$ " + (v / 1e3).toFixed(1) + "K" : fmtBR(v);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const W = 1080, H = 540;
+    canvas.width = W; canvas.height = H;
+
+    const rrect = (x, y, w, h, r) => {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y, x + w, y + r, r);
+      ctx.lineTo(x + w, y + h - r); ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+      ctx.lineTo(x + r, y + h); ctx.arcTo(x, y + h, x, y + h - r, r);
+      ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r);
+      ctx.closePath();
+    };
+
+    // ── BACKGROUND ──
+    const bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, "#0c0c0c"); bg.addColorStop(1, "#080808");
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+    // Decorative concentric arcs (bottom-right)
+    for (let i = 0; i < 9; i++) {
+      ctx.beginPath();
+      ctx.arc(W + 80, H + 80, 140 + i * 52, Math.PI * 0.98, Math.PI * 1.6);
+      ctx.strokeStyle = "rgba(229,57,53," + (0.025 + i * 0.004) + ")";
+      ctx.lineWidth = 1.5; ctx.stroke();
+    }
+    // Decorative arc top-left
+    ctx.beginPath();
+    ctx.arc(-30, -30, 210, 0, Math.PI * 0.48);
+    ctx.strokeStyle = "rgba(229,57,53,0.035)"; ctx.lineWidth = 55; ctx.stroke();
+
+    // ── LEFT RED ACCENT BAR ──
+    const lbg = ctx.createLinearGradient(0, 0, 0, H);
+    lbg.addColorStop(0, "#e53935"); lbg.addColorStop(1, "#c62828");
+    ctx.fillStyle = lbg; ctx.fillRect(0, 0, 7, H);
+
+    // ── HEADER ──
+    ctx.textAlign = "left";
+    ctx.font = "700 10px Arial"; ctx.fillStyle = "#e53935";
+    ctx.fillText("KP REPRESENTAÇÃO  ·  RESULTADO COMERCIAL  ·  " + client.year, 32, 38);
+
+    const ns = client.name.length > 22 ? 26 : client.name.length > 15 ? 32 : 38;
+    ctx.font = "800 " + ns + "px Arial"; ctx.fillStyle = "#f0f0f0";
+    ctx.fillText(client.name.toUpperCase(), 32, 78);
+
+    // Period pill (top right)
+    const pillW = 210, pillH = 30, pillX = W - pillW - 28, pillY = 18;
+    rrect(pillX, pillY, pillW, pillH, 15);
+    ctx.fillStyle = achieved ? "#0d1f0d" : "#0e0e0e"; ctx.fill();
+    rrect(pillX, pillY, pillW, pillH, 15);
+    ctx.strokeStyle = achieved ? "#22c55e44" : "#252525"; ctx.lineWidth = 1; ctx.stroke();
+    ctx.font = "700 11px Arial"; ctx.fillStyle = achieved ? "#22c55e" : "#555";
+    ctx.textAlign = "center"; ctx.fillText(periodLabel, pillX + pillW / 2, pillY + 20);
+
+    // Divider
+    ctx.strokeStyle = "#181818"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(32, 100); ctx.lineTo(W - 32, 100); ctx.stroke();
+
+    // ── CIRCULAR PROGRESS (left panel) ──
+    const cx = 235, cy = 300, outerR = 128, innerR = 90;
+    const startA = -Math.PI / 2;
+    const endA = startA + (progress / 100) * 2 * Math.PI;
+    const ringW = outerR - innerR;
+    const midR = (outerR + innerR) / 2;
+
+    // BG ring
+    ctx.beginPath(); ctx.arc(cx, cy, midR, 0, 2 * Math.PI);
+    ctx.strokeStyle = "#1a1a1a"; ctx.lineWidth = ringW; ctx.stroke();
+
+    // Progress ring
+    if (progress > 0) {
+      const pg = ctx.createLinearGradient(cx - outerR, cy, cx + outerR, cy);
+      if (achieved) { pg.addColorStop(0, "#22c55e"); pg.addColorStop(1, "#16a34a"); }
+      else { pg.addColorStop(0, "#e53935"); pg.addColorStop(1, "#f59e0b"); }
+      ctx.beginPath(); ctx.arc(cx, cy, midR, startA, endA);
+      ctx.strokeStyle = pg; ctx.lineWidth = ringW; ctx.lineCap = "round"; ctx.stroke(); ctx.lineCap = "butt";
+    }
+
+    // Center percent
+    ctx.textAlign = "center";
+    ctx.font = "800 44px Arial"; ctx.fillStyle = achieved ? "#22c55e" : "#f0f0f0";
+    ctx.fillText(progress + "%", cx, cy + 8);
+    ctx.font = "400 11px Arial"; ctx.fillStyle = "#444";
+    ctx.fillText("da meta", cx, cy + 28);
+
+    // Below circle - values
+    ctx.font = "700 10px Arial"; ctx.fillStyle = "#333";
+    ctx.fillText("REALIZADO", cx, cy + outerR + 24);
+    ctx.font = "800 24px Arial"; ctx.fillStyle = achieved ? "#22c55e" : "#e0e0e0";
+    ctx.fillText(fmtS(realized), cx, cy + outerR + 50);
+    ctx.font = "400 11px Arial"; ctx.fillStyle = "#2a2a2a";
+    ctx.fillText("de " + fmtS(goal), cx, cy + outerR + 68);
+
+    // ── RIGHT PANEL ──
+    const rx = 510, ry = 118, rw = 534, rh = 378;
+
+    if (achieved) {
+      // Gold box
+      const ag = ctx.createLinearGradient(rx, ry, rx, ry + rh);
+      ag.addColorStop(0, "#141000"); ag.addColorStop(1, "#0c0900");
+      rrect(rx, ry, rw, rh, 18); ctx.fillStyle = ag; ctx.fill();
+      rrect(rx, ry, rw, rh, 18); ctx.strokeStyle = "#f59e0b33"; ctx.lineWidth = 1; ctx.stroke();
+
+      // Shimmer corner
+      ctx.save();
+      ctx.beginPath(); ctx.arc(rx + rw, ry, 130, Math.PI * 0.5, Math.PI);
+      ctx.strokeStyle = "rgba(245,158,11,0.04)"; ctx.lineWidth = 45; ctx.stroke();
+      ctx.restore();
+
+      // Trophy
+      ctx.font = "52px Arial"; ctx.textAlign = "center";
+      ctx.fillText("\uD83C\uDFC6", rx + rw / 2, ry + 72);
+
+      ctx.font = "800 20px Arial"; ctx.fillStyle = "#f59e0b";
+      ctx.fillText("META ATINGIDA!", rx + rw / 2, ry + 110);
+
+      ctx.strokeStyle = "#f59e0b22"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(rx + 50, ry + 128); ctx.lineTo(rx + rw - 50, ry + 128); ctx.stroke();
+
+      ctx.font = "700 11px Arial"; ctx.fillStyle = "#5a4a10";
+      ctx.fillText("VERBA " + (isAnnual ? "ANUAL" : "TRIMESTRAL"), rx + rw / 2, ry + 158);
+
+      ctx.font = "800 42px Arial"; ctx.fillStyle = "#f59e0b";
+      ctx.fillText(fmtBR(verba), rx + rw / 2, ry + 210);
+
+      const mult = isAnnual ? "0,04" : "0,02";
+      ctx.font = "400 12px Arial"; ctx.fillStyle = "#3a2f0a";
+      ctx.fillText(fmtS(realized) + "  ×  0,8  ×  " + mult, rx + rw / 2, ry + 238);
+
+      ctx.strokeStyle = "#f59e0b15"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(rx + 50, ry + 258); ctx.lineTo(rx + rw - 50, ry + 258); ctx.stroke();
+
+      ctx.font = "400 10px Arial"; ctx.fillStyle = "#2e2510";
+      ctx.fillText("Base de cálculo: valor realizado × 80% (net)", rx + rw / 2, ry + 282);
+
+      ctx.font = "13px Arial"; ctx.fillStyle = "#3a2f0a";
+      ctx.fillText("✦    ✦    ✦", rx + rw / 2, ry + 330);
+
+    } else {
+      // In-progress box
+      rrect(rx, ry, rw, rh, 18); ctx.fillStyle = "#0d0d0d"; ctx.fill();
+      rrect(rx, ry, rw, rh, 18); ctx.strokeStyle = "#1c1c1c"; ctx.lineWidth = 1; ctx.stroke();
+
+      const remaining = goal - realized;
+      const potVerba = goal * 0.8 * (isAnnual ? 0.04 : 0.02);
+
+      ctx.font = "48px Arial"; ctx.textAlign = "center";
+      ctx.fillText("\uD83D\uDCC8", rx + rw / 2, ry + 70);
+
+      ctx.font = "800 16px Arial"; ctx.fillStyle = "#444";
+      ctx.fillText("EM ANDAMENTO", rx + rw / 2, ry + 106);
+
+      ctx.strokeStyle = "#1c1c1c"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(rx + 50, ry + 124); ctx.lineTo(rx + rw - 50, ry + 124); ctx.stroke();
+
+      ctx.font = "700 11px Arial"; ctx.fillStyle = "#3a3a3a";
+      ctx.fillText("FALTAM PARA ATINGIR A META", rx + rw / 2, ry + 158);
+
+      ctx.font = "800 36px Arial"; ctx.fillStyle = "#ef4444";
+      ctx.fillText(fmtS(remaining), rx + rw / 2, ry + 202);
+
+      ctx.font = "400 13px Arial"; ctx.fillStyle = "#2e2e2e";
+      ctx.fillText((100 - progress) + "% restantes", rx + rw / 2, ry + 228);
+
+      // Mini progress bar
+      const mbx = rx + 60, mby = ry + 254, mbw = rw - 120, mbh = 7;
+      rrect(mbx, mby, mbw, mbh, 4); ctx.fillStyle = "#181818"; ctx.fill();
+      if (progress > 0) {
+        const mfw = Math.round(mbw * progress / 100);
+        rrect(mbx, mby, mfw, mbh, 4); ctx.fillStyle = "#e53935"; ctx.fill();
+      }
+      ctx.font = "400 10px Arial"; ctx.fillStyle = "#282828";
+      ctx.fillText(progress + "% concluído", rx + rw / 2, ry + 280);
+
+      ctx.strokeStyle = "#191919"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(rx + 50, ry + 300); ctx.lineTo(rx + rw - 50, ry + 300); ctx.stroke();
+
+      ctx.font = "400 11px Arial"; ctx.fillStyle = "#252525";
+      ctx.fillText("Verba potencial ao atingir a meta:", rx + rw / 2, ry + 328);
+      ctx.font = "700 20px Arial"; ctx.fillStyle = "#282828";
+      ctx.fillText(fmtBR(potVerba), rx + rw / 2, ry + 358);
+    }
+
+    // ── FOOTER ──
+    const now = new Date().toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    ctx.textAlign = "left"; ctx.font = "400 9px Arial"; ctx.fillStyle = "#1e1e1e";
+    ctx.fillText("KP Representação  ·  Gerado em " + now + "  ·  Documento confidencial", 32, H - 14);
+    ctx.fillStyle = "#e53935"; ctx.fillRect(0, H - 4, W * 0.4, 4);
+    const fg = ctx.createLinearGradient(0, 0, W * 0.4, 0);
+    fg.addColorStop(0, "#e53935"); fg.addColorStop(1, "transparent");
+    ctx.fillStyle = fg; ctx.fillRect(0, H - 4, W * 0.4, 4);
+
+  }, []);
+
+  const download = () => {
+    const a = document.createElement("a");
+    a.download = "KP_" + client.name.replace(/\s+/g, "_") + "_" + periodLabel.replace(/[^a-zA-Z0-9]/g, "_") + "_" + client.year + ".png";
+    a.href = canvasRef.current.toDataURL("image/png"); a.click();
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.93)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500, fontFamily: "'DM Sans', sans-serif", padding: 16 }} onClick={onClose}>
+      <div style={{ background: "#111", borderRadius: 20, padding: 20, border: "1px solid #1e1e1e", maxWidth: "min(960px, 95vw)", width: "100%" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#f0f0f0" }}>🖼️ Imagem do Resultado</div>
+            <div style={{ fontSize: 11, color: "#444", marginTop: 2 }}>{client.name}  ·  {periodLabel}  ·  {client.year}</div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#555", fontSize: 26, cursor: "pointer", lineHeight: 1 }}>×</button>
+        </div>
+        <canvas ref={canvasRef} style={{ width: "100%", borderRadius: 12, display: "block" }} />
+        <button onClick={download} style={{ ...BS, marginTop: 14 }}>⬇️ Baixar Imagem PNG</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-function Dashboard({ client, isMobile, onBack, onUpdate, canUpdate }) {
+function Dashboard({ client, isMobile, onBack, onUpdate, canUpdate, isAdmin }) {
   const [modal, setModal] = useState(null);
+  const [report, setReport] = useState(null); // null | "annual" | quarterObject
   const total = client.quarters.reduce((s, q) => s + q.realized, 0);
   const annualPct = pct(total, client.annualGoal);
   const annualRem = Math.max(0, client.annualGoal - total);
@@ -847,7 +1082,12 @@ function Dashboard({ client, isMobile, onBack, onUpdate, canUpdate }) {
       {/* BODY */}
       <div className="kp-body">
         <div style={{ padding: isMobile ? "16px 18px 80px" : "0 36px 60px" }}>
-          <SectionTitle>ANUAL</SectionTitle>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <SectionTitle>ANUAL</SectionTitle>
+            {isAdmin && (
+              <button onClick={() => setReport("annual")} style={{ background: "#1a0505", border: "1px solid #e5393533", borderRadius: 8, color: "#e53935", fontSize: 11, fontWeight: 700, padding: "5px 12px", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", flexShrink: 0, marginLeft: 12 }}>🖼️ Gerar</button>
+            )}
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3,1fr)", gap: isMobile ? 10 : 14, marginBottom: 8 }}>
             <div className="print-card" style={{ background: "#111", borderRadius: 14, padding: isMobile ? "14px" : "18px 20px", border: "1px solid #1a1a1a" }}>
               <div style={{ fontSize: 10, color: "#555", letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 6 }}>Meta Anual</div>
@@ -869,7 +1109,12 @@ function Dashboard({ client, isMobile, onBack, onUpdate, canUpdate }) {
             const qRem = Math.max(0, q.goal - q.realized);
             return (
               <div key={i}>
-                <SectionTitle>{q.label.toUpperCase()}</SectionTitle>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <SectionTitle>{q.label.toUpperCase()}</SectionTitle>
+                  {isAdmin && (
+                    <button onClick={() => setReport(q)} style={{ background: "#1a0505", border: "1px solid #e5393533", borderRadius: 8, color: "#e53935", fontSize: 11, fontWeight: 700, padding: "5px 12px", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", flexShrink: 0, marginLeft: 12 }}>🖼️ Gerar</button>
+                  )}
+                </div>
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3,1fr)", gap: isMobile ? 10 : 14, marginBottom: 8 }}>
                   <div className="print-card" style={{ background: "#111", borderRadius: 14, padding: isMobile ? "14px" : "18px 20px", border: "1px solid #1a1a1a" }}>
                     <div style={{ fontSize: 10, color: "#555", letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 6 }}>Meta {q.label}</div>
@@ -896,6 +1141,7 @@ function Dashboard({ client, isMobile, onBack, onUpdate, canUpdate }) {
         </div>
       </div>
       {modal !== null && <UpdateModal quarter={client.quarters[modal]} qIndex={modal} onSave={onUpdate} onClose={() => setModal(null)} />}
+      {report && <ReportImageModal client={client} quarter={report === "annual" ? null : report} onClose={() => setReport(null)} />}
     </div>
   );
 }
@@ -1163,7 +1409,7 @@ export default function App() {
 
   const mainContent = (() => {
     if (screen === "kpi") return <KpiDashboard clients={kpiClients} isMobile={isMobile} onBack={() => setScreen("clients")} />;
-    if (screen === "dashboard") return <Dashboard client={selected} isMobile={isMobile} onBack={() => setScreen("clients")} onUpdate={handleUpdate} canUpdate={canUpdate} />;
+    if (screen === "dashboard") return <Dashboard client={selected} isMobile={isMobile} onBack={() => setScreen("clients")} onUpdate={handleUpdate} canUpdate={canUpdate} isAdmin={currentUser.isAdmin} />;
     if (screen === "permissions" && currentUser.isAdmin) return <PermissionsScreen users={users} onUpdatePermissions={handleUpdatePermissions} isMobile={isMobile} onBack={() => setScreen("clients")} />;
     if (screen === "settings") return <SettingsScreen currentUser={currentUser} appIcon={appIcon} onUpdateUser={handleUpdateUser} onUpdateAppIcon={handleUpdateAppIcon} isMobile={isMobile} onBack={() => setScreen("clients")} />;
     return <ClientList clients={clients} currentUser={currentUser} users={users} isMobile={isMobile} onSelect={handleSelect} onSaveClient={handleSaveClient} onDeleteClient={handleDeleteClient} onAddUser={handleAddUser} onDeleteUser={handleDeleteUser} onUpdateUser={handleUpdateUser} onUpdateUserCompanies={handleUpdateUserCompanies} onLogout={() => { setCurrentUser(null); setScreen("login"); }} onKpi={() => setScreen("kpi")} onSettings={() => setScreen("settings")} onPermissions={() => setScreen("permissions")} />;
