@@ -42,6 +42,7 @@ const PRINT_CSS = "@media print { body { background: #fff !important; } .no-prin
 const fmt = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const fmtShort = (v) => { if (v >= 1e6) return "R$ " + (v / 1e6).toFixed(1) + "M"; if (v >= 1e3) return "R$ " + (v / 1e3).toFixed(0) + "K"; return fmt(v); };
 const pct = (r, g) => (g === 0 ? 0 : Math.min(100, Math.round((r / g) * 100)));
+const pctReal = (r, g) => (g === 0 ? 0 : Math.round((r / g) * 100));
 const fmtDate = (iso) => { if (!iso) return null; const d = new Date(iso); return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" }) + " " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }); };
 
 // ─── RESPONSIVE HOOK ──────────────────────────────────────────────────────────
@@ -823,7 +824,8 @@ function ReportImageModal({ client, quarter, onClose }) {
   const isAnnual = !quarter;
   const realized = isAnnual ? client.quarters.reduce((s, q) => s + q.realized, 0) : quarter.realized;
   const goal = isAnnual ? client.annualGoal : quarter.goal;
-  const progress = goal > 0 ? Math.min(100, Math.round((realized / goal) * 100)) : 0;
+  const progressBar = goal > 0 ? Math.min(100, Math.round((realized / goal) * 100)) : 0;
+  const progress = goal > 0 ? Math.round((realized / goal) * 100) : 0;
   const achieved = realized >= goal && goal > 0;
   const verba = achieved ? (isAnnual ? realized * 0.8 * 0.04 : realized * 0.8 * 0.02) : null;
   const periodLabel = isAnnual ? "META ANUAL" : quarter.label.toUpperCase();
@@ -894,7 +896,7 @@ function ReportImageModal({ client, quarter, onClose }) {
     // ── CIRCULAR PROGRESS (left panel) ──
     const cx = 235, cy = 300, outerR = 128, innerR = 90;
     const startA = -Math.PI / 2;
-    const endA = startA + (progress / 100) * 2 * Math.PI;
+    const endA = startA + (progressBar / 100) * 2 * Math.PI;
     const ringW = outerR - innerR;
     const midR = (outerR + innerR) / 2;
 
@@ -903,7 +905,7 @@ function ReportImageModal({ client, quarter, onClose }) {
     ctx.strokeStyle = "#1a1a1a"; ctx.lineWidth = ringW; ctx.stroke();
 
     // Progress ring
-    if (progress > 0) {
+    if (progressBar > 0) {
       const pg = ctx.createLinearGradient(cx - outerR, cy, cx + outerR, cy);
       if (achieved) { pg.addColorStop(0, "#22c55e"); pg.addColorStop(1, "#16a34a"); }
       else { pg.addColorStop(0, "#e53935"); pg.addColorStop(1, "#f59e0b"); }
@@ -993,8 +995,8 @@ function ReportImageModal({ client, quarter, onClose }) {
       // Mini progress bar
       const mbx = rx + 60, mby = ry + 254, mbw = rw - 120, mbh = 7;
       rrect(mbx, mby, mbw, mbh, 4); ctx.fillStyle = "#181818"; ctx.fill();
-      if (progress > 0) {
-        const mfw = Math.round(mbw * progress / 100);
+      if (progressBar > 0) {
+        const mfw = Math.round(mbw * progressBar / 100);
         rrect(mbx, mby, mfw, mbh, 4); ctx.fillStyle = "#e53935"; ctx.fill();
       }
       ctx.font = "400 10px Arial"; ctx.fillStyle = "#282828";
@@ -1049,6 +1051,7 @@ function Dashboard({ client, isMobile, onBack, onUpdate, canUpdate, isAdmin }) {
   const [report, setReport] = useState(null); // null | "annual" | quarterObject
   const total = client.quarters.reduce((s, q) => s + q.realized, 0);
   const annualPct = pct(total, client.annualGoal);
+  const annualPctReal = pctReal(total, client.annualGoal);
   const annualRem = Math.max(0, client.annualGoal - total);
   const handlePrint = () => { const style = document.createElement("style"); style.innerHTML = PRINT_CSS; document.head.appendChild(style); window.print(); setTimeout(() => document.head.removeChild(style), 1000); };
 
@@ -1067,7 +1070,7 @@ function Dashboard({ client, isMobile, onBack, onUpdate, canUpdate, isAdmin }) {
               <span style={{ fontSize: 11, color: GREEN }}>✅ Realizado: {fmtShort(total)}</span>
             </div>
             <ProgressBar value={annualPct} thin />
-            <span style={{ fontSize: 11, color: GREEN, fontWeight: 700 }}>{annualPct}% da meta anual atingida</span>
+            <span style={{ fontSize: 11, color: GREEN, fontWeight: 700 }}>{annualPctReal}% da meta anual atingida</span>
           </div>
           <button className="no-print" onClick={handlePrint} style={{ background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 10, color: "#666", fontSize: 11, padding: isMobile ? "6px 10px" : "8px 14px", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", flexShrink: 0 }}>🖨️ {!isMobile && "PDF"}</button>
         </div>
@@ -1090,7 +1093,7 @@ function Dashboard({ client, isMobile, onBack, onUpdate, canUpdate, isAdmin }) {
               <div style={{ fontSize: 10, color: "#666", letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 6 }}>Realizado Anual</div>
               <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, color: GREEN, fontFamily: "monospace" }} className="print-value-green">{fmt(total)}</div>
               <ProgressBar value={annualPct} />
-              <div style={{ fontSize: 12, color: GREEN, fontWeight: 700 }} className="print-value-green">{annualPct}% atingido</div>
+              <div style={{ fontSize: 12, color: GREEN, fontWeight: 700 }} className="print-value-green">{annualPctReal}% atingido</div>
             </div>
             <div className="print-card" style={{ background: "#111", borderRadius: 14, padding: isMobile ? "14px" : "18px 20px", border: "1px solid " + RED + "28" }}>
               <div style={{ fontSize: 10, color: "#666", letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 6 }}>Faltante Anual</div>
@@ -1099,6 +1102,7 @@ function Dashboard({ client, isMobile, onBack, onUpdate, canUpdate, isAdmin }) {
           </div>
           {client.quarters.map((q, i) => {
             const qPct = pct(q.realized, q.goal);
+            const qPctReal = pctReal(q.realized, q.goal);
             const qRem = Math.max(0, q.goal - q.realized);
             return (
               <div key={i}>
@@ -1118,7 +1122,7 @@ function Dashboard({ client, isMobile, onBack, onUpdate, canUpdate, isAdmin }) {
                     <div style={{ fontSize: isMobile ? 17 : 20, fontWeight: 700, color: GREEN, fontFamily: "monospace" }} className="print-value-green">{fmt(q.realized)}</div>
                     <ProgressBar value={qPct} />
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: 12, color: GREEN, fontWeight: 700 }} className="print-value-green">{qPct}% atingido</span>
+                      <span style={{ fontSize: 12, color: GREEN, fontWeight: 700 }} className="print-value-green">{qPctReal}% atingido</span>
                       {q.lastUpdate && <span style={{ fontSize: 10, color: "#2a2a2a" }}>{fmtDate(q.lastUpdate)}</span>}
                     </div>
                     {canUpdate && <button className="no-print" onClick={() => setModal(i)} style={{ position: "absolute", top: 12, right: 12, background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 8, color: "#888", fontSize: 11, fontWeight: 700, padding: "5px 10px", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>✏️ Atualizar</button>}
